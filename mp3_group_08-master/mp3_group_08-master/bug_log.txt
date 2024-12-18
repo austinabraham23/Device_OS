@@ -1,0 +1,168 @@
+----------------------------------------    3.1 BUG LOG --------------------------------------------
+
+BUG 1: When we initially loaded the GDT table, we would get constant boot looping
+TYPE OF BUG: Algorithmic Error
+SYMPTOM: Whenever we ran our operating system it would boot loop continuously without printing anything
+DIFFICULTY OF FINDING:  Moderate -> We had to read more about the actual function of LGDT, and how the 
+                arguments we were feeding it should be formatted. We were trying to just place gdt_ptr into gdtr, 
+                rather than the entire strcuture of the gdt size and its address
+DIFFICULTY OF FIXING:  Moderate -> We had to create the gdt_desc_ptr strcuture to feed into gdtr
+
+
+BUG 2: When first writing our paging algorithm, it did not correctly allocate memory
+TYPE OF BUG:  Algorithmic Error
+SYMPTOM:  None of our tests passed, and the addresses of memory when we ran "info mem" were wrong
+DIFFICULTY OF FINDING:  Moderate -> We had to read through a lot more docs about paging to find the actual differences between 4MB and 4kB paging styles
+DIFFICULTY OF FIXING:   Hard -> had to restructure our paging algorithm to have a union of two different structs that would be better at handling
+                        4MB and 4kB paging styles with their bits correctly aligned
+
+
+BUG 3: Connected keyboard and RTC did not generate interrupts.
+TYPE OF BUG: PIC initialization
+SYMPTOM: Segment Not Present Exception appeared and none of the interrupts occured.
+DIFFICULTY OF FINDING: Fairly hard -> Assumed the issue was with the assembly linker or the keyboard hahndlers rather than the PIC, which is where the real issue was.
+DIFFICULTY OF FIXING: Moderate -> Had to OR EOI with irq number and initially mask all interrupts on the PIC. 
+                      Also, we had not enabled irq for the slave PIC slot, which prevented the RTC from working.
+
+
+BUG 4: Missing Argument of load_page_directory
+TYPE OF BUG: Syntax error
+SYMPTOM: Paging not enabled after compilation
+DIFFICULTY OF FINDING: Moderately difficult ->  Our assembly code was set up to receive the address of the page directory,
+                                                however our C function was not. Estimate an hour of searching through assembly code
+                                                to find discrepancy.
+DIFFICULTY OF FIXING: Fairly Easy -> had syntax error when attempting to pass pointer into function. initially had argument set as a pointer
+                                     to the page directory entry struct. This led to syntax errors so the address was casted to an unsigned pointer.
+
+
+BUG 5: Our keyboard printed out teh incorrect characters
+TYPE OF BUG: Algorithmic error
+SYMPTOM: Whenever we would type it generated random characters rather than the ones on the keyboard
+DIFFICULTY OF FINDING: Easy -> just had to read more files in the Osdev to find that we were not mapping correctly
+DIFFICULTY OF FIXING: Easy -> just had to find the table on osdev listing the value table associated with the different 
+                    characters on teh keyboard and create an array to match it
+
+
+
+
+
+
+----------------------------------------    3.2 BUG LOG --------------------------------------------
+
+BUG 1: RTC Testing issue
+TYPE OF BUG: Algorithmic error
+SYMPTOM: Printing way to many values at each interrupt
+DIFFICULTY OF FINDING: Easy -> saw a lot of prints when only 1 should have occured
+DIFFICULTY OF FIXING: Easy -> created a second conditional based on the rtc_counter after each print
+
+
+BUG 2: RTC Write incorrect calculations
+TYPE OF BUG: Algorithmic error
+SYMPTOM: Was not printing at correct rate 
+DIFFICULTY OF FINDING: Fairly easy -> kept testing multiple times and realized the frequency was not being accurately reflected
+DIFFICULTY OF FIXING: Easy -> relooked at algorithm that calculated rate from the frequency and tested values manually and realized it was wrong.
+                              I rewrote algorithm and it worked
+
+BUG 3: Incorrect memory offsets
+TYPE OF BUG: Algorithmic error
+SYMPTOM: Page Fault Exception
+DIFFICULTY OF FINDING: Difficult -> set breakpoints in read data in gdb and checked all pointer values
+DIFFICULTY OF FIXING: Medium -> found out that adding to a struct pointer will multiply by the size of the struct
+
+BUG 4: Text not printing to next line when doing terminal_write
+TYPE OF BUG: Algorithmic error
+SYMPTOM: text not being displayed correctly
+DIFFICULTY OF FINDING: Extremely easy, was found as soon as anything was printing 
+DIFFICULTY OF FIXING: took a few iterations of fixing, issue was that the bound checking logic was only being applied
+                    to keyboard inputs, not terminal write. First we tried making a new function that had the bounds checking
+                    logic in it. However, we decided a much more elegant solution was to integrate the bounds checking logic into the putc
+                    function, which would apply to all other print functions.
+
+
+
+----------------------------------------    3.3 BUG LOG --------------------------------------------
+
+BUG 1: Page fault on inproper command in terminal
+TYPE OF BUG: Logic Error
+SYMPTOM: Page fault occurs when an inproper command is typed in the terminal.
+DIFFICULTY OF FINDING: Moderate -> Used gdb within each system call to find
+DIFFICULTY OF FIXING: Easy -> once we found issue just added inline assembly to jump after return val (global var) was set
+
+BUG 2: Issue Switching from Kernel to User Space
+TYPE OF BUG: Logic Error
+SYMPTOM: When we ran execute there was no switch to user space and a page fault occured
+DIFFICULTY OF FINDING: Hard -> Took a while a gdb, but realized issue was with in page set up for execute
+DIFFICULTY OF FIXING: Easy -> set User/Supervisor to 1 instead of 0
+
+BUG 3: Page fault in at random times
+TYPE OF BUG: Logic error
+SYMPTOM: A page fault would occur at random times within process
+DIFFICULTY OF FINDING: Easy -> noticed pcb never had null check    
+DIFFICULTY OF FIXING: Easy -> added pcb null test in each system call
+
+BUG 4: terminal character issues
+TYPE OF BUG: Algorithmic error
+SYMPTOM: whenever more than 124 chars where typed into terminal it would page fault when ran
+DIFFICULTY OF FINDING: Medium -> lots of gdbing, but eventually found
+DIFFICULTY OF FIXING: Easy -> just added an if statement in execute to return -1 for those over 124 chars
+
+----------------------------------------    3.4 BUG LOG --------------------------------------------
+
+BUG 1: syserr tests fail when running all at same time, pass individually
+TYPE OF BUG: Algorithmic error
+SYMPTOM: when running syserr tests individually, all would pass, however when running syserr 0 test err_unopened would fail
+DIFFICULTY OF FINDING: Easy -> saw this error as soon as we ran syserr 0
+DIFFICULTY OF FIXING: Medium -> issue was quite subtle, in our syscall close function we weren't using pointers to change
+                                flag to 0, so we weren't actually changing the real flags so when we ran syserr 0 the flags
+                                from a previous test would still be set.
+
+BUG 2: pingpong wrong frequency
+TYPE OF BUG: Algorithmic Error
+SYMPTOM: pingpong was running extremely fast (at max frequency) instead of the 32 Hz specified in the pingpong file
+DIFFICULTY OF FINDING: Easy -> just opened the pingpong file to realize it was rtc read
+DIFFICULTY OF FIXING: Easy -> looked at my code and realized I never virtualized correctly
+
+BUG 3: incorrect drawing of fish frames when running fish
+TYPE OF BUG: Logic error
+SYMPTOM: the fish program seemed to be working correctly, but teh frames were drawn wrong, and only drew every two characters from the frame
+DIFFICULTY OF FINDING: Difficult -> had to gdb for a while and find that our issue was in file read. Figured 
+                            that since fish was calling rtc read on frame0 and frame1 simultaneously, it drew them
+                             wrong because the offset ever time file read was called was incorrect. The offset 
+                             increased for both every time either file read was called, rather than only incraesing 
+                             for each specific file
+DIFFICULTY OF FIXING: Moderate -> had to change the way we incremended the offset for each specific fd
+
+
+
+
+----------------------------------------    3.5 BUG LOG --------------------------------------------
+
+BUG 1: when switching terminals keyboard buffer is not updated properly
+TYPE OF BUG: Algorithmic error
+SYMPTOM: when writing a command then switching terminals then executing the previously typed command would execute
+DIFFICULTY OF FINDING: Easy -> one of the first things we tested
+DIFFICULTY OF FIXING: Moderate -> bug was in keyboard.c becuase we were using a local copy that would overwrite our attempted save
+
+BUG 2: After running fish and trying to switch terminals we would page fault
+TYPE OF BUG: Algorithmic error
+SYMPTOM: Afting running fish a trying to switch terminals page fault
+DIFFICULTY OF FINDING: Easy -> very apparent after we ran fish
+DIFFICULTY OF FIXING: Easy -> had to add more paging support in vidmem system call
+
+BUG 3: When starting first terminal, page fault 
+TYPE OF BUG: Algorthmic error 
+SYMPTOM: When starting os, there would be an immediate page fault before execute was called
+DIFFICULTY OF FINDING: Easy -> 5 minutes of gdb and thinking
+DIFFICULTY OF FIXING: Easy -> we tried to access a pcb before execute was called so no pcb was present
+
+BUG 4: Issues with pid in execute and halt
+TYPE OF BUG: logical error 
+SYMPTOM: Kept page faulting in random spots
+DIFFICULTY OF FINDING: Easy -> realized our pid was a global variable only set up for a single terminal
+DIFFICULTY OF FIXING: Medium -> worked to ultilize pit to update the pid based on the terminal and process
+
+BUG #:
+TYPE OF BUG:
+SYMPTOM:
+DIFFICULTY OF FINDING:
+DIFFICULTY OF FIXING:
